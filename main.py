@@ -90,63 +90,60 @@ base_html = """
             });
         {% endif %}
 
-        function likePost(postId) {
-            fetch(`/like/${postId}`, {
-                method: 'POST'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if(data.success) {
+        async function likePost(postId) {
+            try {
+                const response = await fetch(`/like/${postId}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.success) {
                     const likeCount = document.getElementById(`like-count-${postId}`);
                     likeCount.textContent = data.likes;
 
                     const likeBtn = document.getElementById(`like-btn-${postId}`);
-                    if(data.liked) {
+                    if (data.liked) {
                         likeBtn.innerHTML = '<i class="fas fa-heart text-red-500"></i>';
                     } else {
                         likeBtn.innerHTML = '<i class="far fa-heart"></i>';
                     }
                 }
-            });
+            } catch (error) {
+                console.error('Error liking post:', error);
+            }
         }
 
         function toggleReplyForm(commentId) {
             const replyForm = document.getElementById(`reply-form-${commentId}`);
             replyForm.classList.toggle('hidden');
         }
-
-        function toggleTheme() {
-            document.body.classList.toggle('dark');
-        }
     </script>
     <style>
-        .dark {
+        body {
             background-color: #1f2937;
             color: #e5e7eb;
         }
-        .dark .bg-white {
+        .bg-white {
             background-color: #374151;
         }
-        .dark .text-gray-900 {
+        .text-gray-900 {
             color: #e5e7eb;
         }
-        .dark .text-gray-500 {
+        .text-gray-500 {
             color: #9ca3af;
         }
-        .dark .border-gray-200 {
+        .border-gray-200 {
             border-color: #4b5563;
         }
     </style>
 </head>
-<body class="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+<body class="bg-gray-900 text-gray-100">
     <div class="max-w-3xl mx-auto py-8 px-4">
         <div class="mb-6 flex justify-between items-center">
             <h1 class="text-3xl font-bold text-blue-600"><a href='{{ url_for('index') }}'>NerestReddit</a></h1>
             <div class="space-x-4">
                 {% if session.get('username') %}
-                    <span class="text-gray-700 dark:text-gray-300">Привет, {{ session['username'] }}!</span>
+                    <span class="text-gray-300">Привет, {{ session['username'] }}!</span>
                     <a href="{{ url_for('create_post') }}" class="text-blue-500 hover:underline">Создать пост</a>
-                    <button onclick="toggleTheme()" class="text-blue-500 hover:underline">Темная/Светлая тема</button>
                     <a href="{{ url_for('logout') }}" class="text-red-500 hover:underline">Выйти</a>
                 {% else %}
                     <a href="{{ url_for('login') }}" class="text-blue-500 hover:underline">Войти</a>
@@ -167,7 +164,7 @@ def index():
     posts = Post.query.order_by(Post.created_at.desc()).all()
     posts_html = "".join(
         f"""
-        <div class='bg-white rounded-xl p-4 shadow mb-4 dark:bg-gray-800 dark:text-gray-200'>
+        <div class='bg-white rounded-xl p-4 shadow mb-4'>
             <h2 class='text-xl font-semibold text-blue-700'><a href='{url_for('view_post', post_id=post.id)}'>{post.title}</a></h2>
             <p class='mt-2'>{post.content}</p>
             <div class='flex justify-between items-center mt-4'>
@@ -202,28 +199,25 @@ def register():
             error = "Пользователь уже существует."
         else:
             hashed_pw = generate_password_hash(password)
-            db.session.add(User(username=username, password=hashed_pw))
+            new_user = User(username=username, password=hashed_pw)
+            db.session.add(new_user)
             db.session.commit()
 
-            # Create a notification for successful registration
-            notification = {"message": "Аккаунт успешно создан! Теперь вы можете войти.", "type": "success"}
-            return render_template_string(
-                base_html,
-                title="Регистрация",
-                content=render_login_form(""),
-                notification=notification
-            )
+            # Automatically log in the user after registration
+            session['username'] = new_user.username
+            notification = {"message": "Аккаунт успешно создан!", "type": "success"}
+            return redirect(url_for('index'))
 
-    return render_template_string(base_html, title="Регистрация", content=render_register_form(error))
+    return render_template_string(base_html, title="Регистрация", content=render_register_form(error), notification=notification)
 
 def render_register_form(error):
     return f"""
-    <div class="bg-white p-6 rounded-xl shadow-md max-w-md mx-auto dark:bg-gray-800 dark:text-gray-200">
+    <div class="bg-white p-6 rounded-xl shadow-md max-w-md mx-auto">
         <h2 class="text-xl font-bold mb-4">Регистрация</h2>
         {"<p class='text-red-500 mb-2'>" + error + "</p>" if error else ""}
         <form method="post" class="space-y-4">
-            <input name="username" class="w-full p-2 border rounded dark:bg-gray-700 dark:text-gray-200" placeholder="Имя пользователя">
-            <input type="password" name="password" class="w-full p-2 border rounded dark:bg-gray-700 dark:text-gray-200" placeholder="Пароль">
+            <input name="username" class="w-full p-2 border rounded bg-gray-700 text-gray-200" placeholder="Имя пользователя">
+            <input type="password" name="password" class="w-full p-2 border rounded bg-gray-700 text-gray-200" placeholder="Пароль">
             <button class="bg-blue-500 text-white px-4 py-2 rounded w-full">Зарегистрироваться</button>
         </form>
         <p class="mt-4 text-sm text-gray-600">Уже есть аккаунт? <a href="{url_for('login')}" class="text-blue-500 underline">Войти</a></p>
@@ -232,12 +226,12 @@ def render_register_form(error):
 
 def render_login_form(error):
     return f"""
-    <div class="bg-white p-6 rounded-xl shadow-md max-w-md mx-auto dark:bg-gray-800 dark:text-gray-200">
+    <div class="bg-white p-6 rounded-xl shadow-md max-w-md mx-auto">
         <h2 class="text-xl font-bold mb-4">Вход</h2>
         {"<p class='text-red-500 mb-2'>" + error + "</p>" if error else ""}
         <form method="post" class="space-y-4">
-            <input name="username" class="w-full p-2 border rounded dark:bg-gray-700 dark:text-gray-200" placeholder="Имя пользователя">
-            <input type="password" name="password" class="w-full p-2 border rounded dark:bg-gray-700 dark:text-gray-200" placeholder="Пароль">
+            <input name="username" class="w-full p-2 border rounded bg-gray-700 text-gray-200" placeholder="Имя пользователя">
+            <input type="password" name="password" class="w-full p-2 border rounded bg-gray-700 text-gray-200" placeholder="Пароль">
             <button class="bg-blue-500 text-white px-4 py-2 rounded w-full">Войти</button>
         </form>
         <p class="mt-4 text-sm text-gray-600">Нет аккаунта? <a href="{url_for('register')}" class="text-blue-500 underline">Зарегистрироваться</a></p>
@@ -284,12 +278,12 @@ def create_post():
             return redirect(url_for('index'))
 
     form = f"""
-    <div class="bg-white p-6 rounded-xl shadow-md max-w-md mx-auto dark:bg-gray-800 dark:text-gray-200">
+    <div class="bg-white p-6 rounded-xl shadow-md max-w-md mx-auto">
         <h2 class="text-xl font-bold mb-4">Новый пост</h2>
         {"<p class='text-red-500 mb-2'>" + error + "</p>" if error else ""}
         <form method="post" class="space-y-4">
-            <input name="title" class="w-full p-2 border rounded dark:bg-gray-700 dark:text-gray-200" placeholder="Заголовок">
-            <textarea name="content" class="w-full p-2 border rounded h-32 dark:bg-gray-700 dark:text-gray-200" placeholder="Содержание..."></textarea>
+            <input name="title" class="w-full p-2 border rounded bg-gray-700 text-gray-200" placeholder="Заголовок">
+            <textarea name="content" class="w-full p-2 border rounded h-32 bg-gray-700 text-gray-200" placeholder="Содержание..."></textarea>
             <button class="bg-green-500 text-white px-4 py-2 rounded w-full">Опубликовать</button>
         </form>
     </div>
@@ -310,7 +304,7 @@ def view_post(post_id):
             replies = Comment.query.filter_by(parent_id=comment.id).order_by(Comment.created_at).all()
             replies_html = render_comments(replies) if replies else ""
             comments_html += f"""
-            <div class="border-t pt-3 pb-3 dark:border-gray-700">
+            <div class="border-t pt-3 pb-3 border-gray-700">
                 <div class="flex items-center">
                     <span class="font-medium">{comment.author}</span>
                     <span class="text-xs text-gray-500 ml-2">{comment.created_at.strftime('%d.%m.%Y %H:%M')}</span>
@@ -321,7 +315,7 @@ def view_post(post_id):
                     <div id="reply-form-{comment.id}" class="hidden mt-2">
                         <form action="{url_for('add_comment', post_id=post.id)}" method="post" class="flex flex-col gap-2">
                             <input type="hidden" name="parent_id" value="{comment.id}">
-                            <textarea name="content" class="w-full p-2 border rounded h-24 dark:bg-gray-700 dark:text-gray-200" placeholder="Добавить ответ..."></textarea>
+                            <textarea name="content" class="w-full p-2 border rounded h-24 bg-gray-700 text-gray-200" placeholder="Добавить ответ..."></textarea>
                             <button class="bg-blue-500 text-white px-4 py-2 rounded self-end">Отправить</button>
                         </form>
                     </div>
@@ -336,7 +330,7 @@ def view_post(post_id):
     comments_html = render_comments(comments)
 
     content = f"""
-    <div class="bg-white rounded-xl p-6 shadow mb-4 dark:bg-gray-800 dark:text-gray-200">
+    <div class="bg-white rounded-xl p-6 shadow mb-4">
         <h1 class="text-2xl font-bold text-blue-700 mb-2">{post.title}</h1>
         <p class="mb-4">{post.content}</p>
         <div class="flex justify-between items-center mb-6">
@@ -353,7 +347,7 @@ def view_post(post_id):
             <h3 class="text-xl font-semibold mb-4">Комментарии</h3>
             <div class="mb-6">
                 <form action="{url_for('add_comment', post_id=post.id)}" method="post" class="flex flex-col gap-2">
-                    <textarea name="content" class="w-full p-2 border rounded h-24 dark:bg-gray-700 dark:text-gray-200" placeholder="Добавить комментарий..."></textarea>
+                    <textarea name="content" class="w-full p-2 border rounded h-24 bg-gray-700 text-gray-200" placeholder="Добавить комментарий..."></textarea>
                     <button class="bg-blue-500 text-white px-4 py-2 rounded self-end">Отправить</button>
                 </form>
             </div>
