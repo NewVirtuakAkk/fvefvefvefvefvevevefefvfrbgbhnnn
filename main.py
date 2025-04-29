@@ -11,7 +11,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# Модели
+# Models
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -37,7 +37,7 @@ class Like(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
 
-    # Уникальное ограничение, чтобы пользователь мог поставить только один лайк на пост
+    # Unique constraint to ensure a user can like a post only once
     __table_args__ = (db.UniqueConstraint('user_id', 'post_id'),)
 
 def is_logged_in():
@@ -57,7 +57,7 @@ def user_liked_post(post_id):
         return like is not None
     return False
 
-# Базовый шаблон
+# Base template
 base_html = """
 <!DOCTYPE html>
 <html lang="ru">
@@ -113,13 +113,16 @@ base_html = """
     <div class="max-w-3xl mx-auto py-8 px-4">
         <div class="mb-6 flex justify-between items-center">
             <h1 class="text-3xl font-bold text-blue-600"><a href='{{ url_for('index') }}'>NerestReddit</a></h1>
-            {% if session.get('username') %}
-                <div class="space-x-4">
+            <div class="space-x-4">
+                {% if session.get('username') %}
                     <span class="text-gray-700">Привет, {{ session['username'] }}!</span>
                     <a href="{{ url_for('create_post') }}" class="text-blue-500 hover:underline">Создать пост</a>
                     <a href="{{ url_for('logout') }}" class="text-red-500 hover:underline">Выйти</a>
-                </div>
-            {% endif %}
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="text-blue-500 hover:underline">Войти</a>
+                    <a href="{{ url_for('register') }}" class="text-green-500 hover:underline">Регистрация</a>
+                {% endif %}
+            </div>
         </div>
         {{ content | safe }}
     </div>
@@ -172,12 +175,12 @@ def register():
             db.session.add(User(username=username, password=hashed_pw))
             db.session.commit()
 
-            # Создаем уведомление об успешной регистрации
+            # Create a notification for successful registration
             notification = {"message": "Аккаунт успешно создан! Теперь вы можете войти.", "type": "success"}
             return render_template_string(
-                base_html, 
-                title="Регистрация", 
-                content=render_login_form(""), 
+                base_html,
+                title="Регистрация",
+                content=render_login_form(""),
                 notification=notification
             )
 
@@ -248,8 +251,6 @@ def create_post():
             db.session.add(post)
             db.session.commit()
             notification = {"message": "Пост успешно создан!", "type": "success"}
-            # Вот исправление - вместо вызова .get_data() у результата index(),
-            # мы просто делаем редирект на главную страницу
             return redirect(url_for('index'))
 
     form = f"""
@@ -341,16 +342,16 @@ def like_post(post_id):
     user_id = get_user_id()
     post = Post.query.get_or_404(post_id)
 
-    # Проверяем, ставил ли пользователь лайк
+    # Check if the user has already liked the post
     like = Like.query.filter_by(user_id=user_id, post_id=post_id).first()
 
     if like:
-        # Если лайк уже есть - удаляем его
+        # If the like exists, remove it
         db.session.delete(like)
         post.likes -= 1
         liked = False
     else:
-        # Если лайка нет - добавляем
+        # If the like does not exist, add it
         new_like = Like(user_id=user_id, post_id=post_id)
         db.session.add(new_like)
         post.likes += 1
@@ -363,8 +364,5 @@ def like_post(post_id):
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
-else:
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
 
