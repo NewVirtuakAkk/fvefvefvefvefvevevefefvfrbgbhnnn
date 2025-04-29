@@ -30,7 +30,9 @@ class Comment(db.Model):
     content = db.Column(db.Text, nullable=False)
     author = db.Column(db.String(80), nullable=False)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
+    parent_id = db.Column(db.Integer, db.ForeignKey('comment.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    replies = db.relationship('Comment', backref=db.backref('parent', remote_side=[id]), lazy='dynamic')
 
 class Like(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -272,19 +274,38 @@ def view_post(post_id):
         return redirect(url_for('login'))
 
     post = Post.query.get_or_404(post_id)
-    comments = Comment.query.filter_by(post_id=post_id).order_by(Comment.created_at).all()
+    comments = Comment.query.filter_by(post_id=post_id, parent_id=None).order_by(Comment.created_at).all()
 
-    comments_html = "".join(
-        f"""
-        <div class="border-t pt-3 pb-3">
-            <div class="flex items-center">
-                <span class="font-medium">{comment.author}</span>
-                <span class="text-xs text-gray-500 ml-2">{comment.created_at.strftime('%d.%m.%Y %H:%M')}</span>
+    def render_comments(comments):
+        comments_html = ""
+        for comment in comments:
+            replies = Comment.query.filter_by(parent_id=comment.id).order_by(Comment.created_at).all()
+            replies_html = render_comments(replies) if replies else ""
+            comments_html += f"""
+            <div class="border-t pt-3 pb-3">
+                <div class="flex items-center">
+                    <span class="font-medium">{comment.author}</span>
+                    <span class="text-xs text-gray-500 ml-2">{comment.created_at.strftime('%d.%m.%Y %H:%M')}</span>
+                </div>
+                <p class="mt-1">{comment.content}</p>
+                <div class="ml-4 mt-2">
+                    <a href="#" onclick="toggleReplyForm({comment.id})" class="text-blue-500 hover:underline text-sm">Ответить</a>
+                    <div id="reply-form-{comment.id}" class="hidden mt-2">
+                        <form action="{url_for('add_comment', post_id=post.id)}" method="post" class="flex flex-col gap-2">
+                            <input type="hidden" name="parent_id" value="{comment.id}">
+                            <textarea name="content" class="w-full p-2 border rounded h-24" placeholder="Добавить ответ..."></textarea>
+                            <button class="bg-blue-500 text-white px-4 py-2 rounded self-end">Отправить</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="ml-4 mt-2">
+                    {replies_html}
+                </div>
             </div>
-            <p class="mt-1">{comment.content}</p>
-        </div>
-        """ for comment in comments
-    )
+            """
+        return comments_html
+
+    comments_html = render_comments(comments)
 
     content = f"""
     <div class="bg-white rounded-xl p-6 shadow mb-4">
@@ -313,6 +334,12 @@ def view_post(post_id):
             </div>
         </div>
     </div>
+    <script>
+        function toggleReplyForm(commentId) {
+            const replyForm = document.getElementById(`reply-form-${commentId}`);
+            replyForm.classList.toggle('hidden');
+        }
+    </script>
     """
 
     return render_template_string(base_html, title=post.title, content=content)
@@ -323,11 +350,13 @@ def add_comment(post_id):
         return redirect(url_for('login'))
 
     content = request.form['content'].strip()
+    parent_id = request.form.get('parent_id')
     if content:
         comment = Comment(
             content=content,
             author=session['username'],
-            post_id=post_id
+            post_id=post_id,
+            parent_id=parent_id
         )
         db.session.add(comment)
         db.session.commit()
@@ -365,4 +394,3 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
-
