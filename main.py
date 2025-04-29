@@ -148,6 +148,29 @@ base_html = """
         a:hover {
             text-decoration: underline;
         }
+        .post-container {
+            background-color: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .post-title {
+            color: #3b82f6;
+        }
+        .post-content {
+            color: #e5e7eb;
+        }
+        .comment-container {
+            background-color: #4b5563;
+            border: 1px solid #5a616a;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 8px;
+        }
+        .comment-content {
+            color: #e5e7eb;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100">
@@ -178,9 +201,9 @@ def index():
     posts = Post.query.order_by(Post.created_at.desc()).all()
     posts_html = "".join(
         f"""
-        <div class='bg-white rounded-xl p-4 shadow mb-4'>
-            <h2 class='text-xl font-semibold text-blue-700'><a href='{url_for('view_post', post_id=post.id)}'>{post.title}</a></h2>
-            <p class='mt-2'>{post.content}</p>
+        <div class='post-container'>
+            <h2 class='text-xl font-semibold post-title'><a href='{url_for('view_post', post_id=post.id)}'>{post.title}</a></h2>
+            <p class='mt-2 post-content'>{post.content}</p>
             <div class='flex justify-between items-center mt-4'>
                 <p class='text-sm text-gray-500'>Автор: {post.author} | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
                 <div class='flex items-center'>
@@ -318,12 +341,12 @@ def view_post(post_id):
             replies = Comment.query.filter_by(parent_id=comment.id).order_by(Comment.created_at).all()
             replies_html = render_comments(replies) if replies else ""
             comments_html += f"""
-            <div class="border-t pt-3 pb-3 border-gray-700">
+            <div class="comment-container">
                 <div class="flex items-center">
                     <span class="font-medium">{comment.author}</span>
                     <span class="text-xs text-gray-500 ml-2">{comment.created_at.strftime('%d.%m.%Y %H:%M')}</span>
                 </div>
-                <p class="mt-1">{comment.content}</p>
+                <p class="mt-1 comment-content">{comment.content}</p>
                 <div class="ml-4 mt-2">
                     <a href="#" onclick="toggleReplyForm({comment.id})" class="text-blue-500 hover:underline text-sm">Ответить</a>
                     <div id="reply-form-{comment.id}" class="hidden mt-2">
@@ -344,9 +367,9 @@ def view_post(post_id):
     comments_html = render_comments(comments)
 
     content = f"""
-    <div class="bg-white rounded-xl p-6 shadow mb-4">
-        <h1 class="text-2xl font-bold text-blue-700 mb-2">{post.title}</h1>
-        <p class="mb-4">{post.content}</p>
+    <div class="post-container">
+        <h1 class="text-2xl font-bold post-title mb-2">{post.title}</h1>
+        <p class="mb-4 post-content">{post.content}</p>
         <div class="flex justify-between items-center mb-6">
             <p class="text-sm text-gray-500">Автор: {post.author} | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
             <div class="flex items-center">
