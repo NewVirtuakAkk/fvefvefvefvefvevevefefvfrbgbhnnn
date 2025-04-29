@@ -124,7 +124,7 @@ base_html = """
             background-color: #0f172a; /* dark blue */
             color: #e2e8f0;
         }
-        .bg-white {
+        .bg-white, .bg-gray-900 {
             background-color: #1e3a8a; /* darker blue */
         }
         .text-gray-900 {
@@ -176,9 +176,16 @@ base_html = """
         .comment-content {
             color: #e2e8f0;
         }
+        /* Глобальные переопределения для всех белых элементов */
+        .bg-white, .bg-gray-100, .bg-gray-50 {
+            background-color: #1e3a8a !important;
+        }
+        .shadow-md, .shadow-lg, .shadow-xl {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100">
+<body class="bg-blue-950 text-blue-100">
     <div class="max-w-3xl mx-auto py-8 px-4">
         <div class="mb-6 flex justify-between items-center">
             <h1 class="text-3xl font-bold text-blue-500"><a href='{{ url_for('index') }}'>NerestReddit</a></h1>
@@ -210,12 +217,12 @@ def index():
             <h2 class='text-xl font-semibold post-title'><a href='{url_for('view_post', post_id=post.id)}'>{post.title}</a></h2>
             <p class='mt-2 post-content'>{post.content}</p>
             <div class='flex justify-between items-center mt-4'>
-                <p class='text-sm text-gray-500'>Автор: {post.author} | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
+                <p class='text-sm text-blue-300'>Автор: {post.author} | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
                 <div class='flex items-center'>
-                    <button id="like-btn-{post.id}" onclick="likePost({post.id})" class="mr-1 text-gray-600 hover:text-blue-500">
+                    <button id="like-btn-{post.id}" onclick="likePost({post.id})" class="mr-1 text-blue-300 hover:text-blue-500">
                         <i class="{'fas text-blue-500' if user_liked_post(post.id) else 'far'} fa-heart"></i>
                     </button>
-                    <span id="like-count-{post.id}" class="text-gray-600">{post.likes}</span>
+                    <span id="like-count-{post.id}" class="text-blue-300">{post.likes}</span>
                     <a href="{url_for('view_post', post_id=post.id)}" class="ml-4 text-blue-500 hover:underline">
                         Комментарии
                     </a>
@@ -257,29 +264,29 @@ def register():
 
 def render_register_form(error):
     return f"""
-    <div class="bg-white p-6 rounded-xl shadow-md max-w-md mx-auto">
-        <h2 class="text-xl font-bold mb-4">Регистрация</h2>
-        {"<p class='text-red-500 mb-2'>" + error + "</p>" if error else ""}
+    <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto">
+        <h2 class="text-xl font-bold mb-4 text-blue-200">Регистрация</h2>
+        {"<p class='text-red-400 mb-2'>" + error + "</p>" if error else ""}
         <form method="post" class="space-y-4">
-            <input name="username" class="w-full p-2 border rounded bg-blue-900 text-gray-200" placeholder="Имя пользователя">
-            <input type="password" name="password" class="w-full p-2 border rounded bg-blue-900 text-gray-200" placeholder="Пароль">
-            <button class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Зарегистрироваться</button>
+            <input name="username" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Имя пользователя">
+            <input type="password" name="password" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Пароль">
+            <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Зарегистрироваться</button>
         </form>
-        <p class="mt-4 text-sm text-gray-400">Уже есть аккаунт? <a href="{url_for('login')}" class="text-blue-500 underline">Войти</a></p>
+        <p class="mt-4 text-sm text-blue-300">Уже есть аккаунт? <a href="{url_for('login')}" class="text-blue-400 underline">Войти</a></p>
     </div>
     """
 
 def render_login_form(error):
     return f"""
-    <div class="bg-white p-6 rounded-xl shadow-md max-w-md mx-auto">
-        <h2 class="text-xl font-bold mb-4">Вход</h2>
-        {"<p class='text-red-500 mb-2'>" + error + "</p>" if error else ""}
+    <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto">
+        <h2 class="text-xl font-bold mb-4 text-blue-200">Вход</h2>
+        {"<p class='text-red-400 mb-2'>" + error + "</p>" if error else ""}
         <form method="post" class="space-y-4">
-            <input name="username" class="w-full p-2 border rounded bg-blue-900 text-gray-200" placeholder="Имя пользователя">
-            <input type="password" name="password" class="w-full p-2 border rounded bg-blue-900 text-gray-200" placeholder="Пароль">
-            <button class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Войти</button>
+            <input name="username" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Имя пользователя">
+            <input type="password" name="password" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Пароль">
+            <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Войти</button>
         </form>
-        <p class="mt-4 text-sm text-gray-400">Нет аккаунта? <a href="{url_for('register')}" class="text-blue-500 underline">Зарегистрироваться</a></p>
+        <p class="mt-4 text-sm text-blue-300">Нет аккаунта? <a href="{url_for('register')}" class="text-blue-400 underline">Зарегистрироваться</a></p>
     </div>
     """
 
@@ -337,13 +344,13 @@ def create_post():
             return redirect(url_for('index'))
 
     form = f"""
-    <div class="bg-white p-6 rounded-xl shadow-md max-w-md mx-auto">
-        <h2 class="text-xl font-bold mb-4">Новый пост</h2>
-        {"<p class='text-red-500 mb-2'>" + error + "</p>" if error else ""}
+    <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto">
+        <h2 class="text-xl font-bold mb-4 text-blue-200">Новый пост</h2>
+        {"<p class='text-red-400 mb-2'>" + error + "</p>" if error else ""}
         <form method="post" class="space-y-4">
-            <input name="title" class="w-full p-2 border rounded bg-blue-900 text-gray-200" placeholder="Заголовок">
-            <textarea name="content" class="w-full p-2 border rounded h-32 bg-blue-900 text-gray-200" placeholder="Содержание..."></textarea>
-            <button class="bg-blue-500 text-white px-4 py-2 rounded w-full hover:bg-blue-600">Опубликовать</button>
+            <input name="title" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Заголовок">
+            <textarea name="content" class="w-full p-2 border rounded h-32 bg-blue-800 text-blue-100" placeholder="Содержание..."></textarea>
+            <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Опубликовать</button>
         </form>
     </div>
     """
@@ -365,8 +372,8 @@ def view_post(post_id):
             comments_html += f"""
             <div class="comment-container">
                 <div class="flex items-center">
-                    <span class="font-medium">{comment.author}</span>
-                    <span class="text-xs text-gray-500 ml-2">{comment.created_at.strftime('%d.%m.%Y %H:%M')}</span>
+                    <span class="font-medium text-blue-200">{comment.author}</span>
+                    <span class="text-xs text-blue-300 ml-2">{comment.created_at.strftime('%d.%m.%Y %H:%M')}</span>
                 </div>
                 <p class="mt-1 comment-content">{comment.content}</p>
                 <div class="ml-4 mt-2">
@@ -393,12 +400,12 @@ def view_post(post_id):
         <h1 class="text-2xl font-bold post-title mb-2">{post.title}</h1>
         <p class="mb-4 post-content">{post.content}</p>
         <div class="flex justify-between items-center mb-6">
-            <p class="text-sm text-gray-500">Автор: {post.author} | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
+            <p class="text-sm text-blue-300">Автор: {post.author} | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
             <div class="flex items-center">
-                <button id="like-btn-{post.id}" onclick="likePost({post.id})" class="mr-1 text-gray-600 hover:text-blue-500">
+                <button id="like-btn-{post.id}" onclick="likePost({post.id})" class="mr-1 text-blue-300 hover:text-blue-500">
                     <i class="{'fas text-blue-500' if user_liked_post(post.id) else 'far'} fa-heart"></i>
                 </button>
-                <span id="like-count-{post.id}" class="text-gray-600">{post.likes}</span>
+                <span id="like-count-{post.id}" class="text-blue-300">{post.likes}</span>
             </div>
         </div>
 
@@ -411,7 +418,7 @@ def view_post(post_id):
                 </form>
             </div>
             <div class="space-y-4">
-                {comments_html if comments else "<p class='text-gray-500'>Пока нет комментариев</p>"}
+                {comments_html if comments else "<p class='text-blue-300'>Пока нет комментариев</p>"}
             </div>
         </div>
     </div>
