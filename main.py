@@ -134,6 +134,20 @@ base_html = """
         .border-gray-200 {
             border-color: #4b5563;
         }
+        input, textarea, button {
+            background-color: #374151;
+            color: #e5e7eb;
+            border-color: #4b5563;
+        }
+        input::placeholder, textarea::placeholder {
+            color: #9ca3af;
+        }
+        a {
+            color: #3b82f6;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100">
