@@ -138,7 +138,7 @@ base_html = """
         }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+<body class="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
     <div class="max-w-3xl mx-auto py-8 px-4">
         <div class="mb-6 flex justify-between items-center">
             <h1 class="text-3xl font-bold text-blue-600"><a href='{{ url_for('index') }}'>NerestReddit</a></h1>
