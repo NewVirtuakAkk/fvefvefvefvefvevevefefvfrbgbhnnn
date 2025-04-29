@@ -114,7 +114,26 @@ base_html = """
             const replyForm = document.getElementById(`reply-form-${commentId}`);
             replyForm.classList.toggle('hidden');
         }
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark');
+        }
     </script>
+    <style>
+        .dark {
+            background-color: #1f2937;
+            color: #e5e7eb;
+        }
+        .dark .bg-white {
+            background-color: #374151;
+        }
+        .dark .text-gray-900 {
+            color: #e5e7eb;
+        }
+        .dark .text-gray-500 {
+            color: #9ca3af;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 text-gray-900">
     <div class="max-w-3xl mx-auto py-8 px-4">
@@ -124,6 +143,7 @@ base_html = """
                 {% if session.get('username') %}
                     <span class="text-gray-700">Привет, {{ session['username'] }}!</span>
                     <a href="{{ url_for('create_post') }}" class="text-blue-500 hover:underline">Создать пост</a>
+                    <button onclick="toggleTheme()" class="text-blue-500 hover:underline">Темная/Светлая тема</button>
                     <a href="{{ url_for('logout') }}" class="text-red-500 hover:underline">Выйти</a>
                 {% else %}
                     <a href="{{ url_for('login') }}" class="text-blue-500 hover:underline">Войти</a>
