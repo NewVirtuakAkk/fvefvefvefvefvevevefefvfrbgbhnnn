@@ -115,6 +115,24 @@ base_html = """
             }
         }
 
+        async function deletePost(postId) {
+            if (confirm('Вы уверены, что хотите удалить этот пост?')) {
+                try {
+                    const response = await fetch(`/delete/${postId}`, {
+                        method: 'POST'
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        window.location.href = "/";
+                    } else {
+                        showNotification(data.message, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error deleting post:', error);
+                }
+            }
+        }
+
         async function registerUser(event) {
             event.preventDefault();
             const form = event.target;
@@ -209,7 +227,7 @@ base_html = """
             color: #3b82f6;
         }
         a:hover {
-            text-decoration: underline;
+            text-decoration: none;
         }
         .post-container {
             background-color: #1e3a8a;
@@ -253,11 +271,11 @@ base_html = """
             <div class="space-x-4">
                 {% if session.get('username') %}
                     <span class="text-blue-300">Привет, {{ session['username'] }}!</span>
-                    <a href="{{ url_for('create_post') }}" class="text-blue-500 hover:underline">Создать пост</a>
-                    <a href="{{ url_for('logout') }}" class="text-blue-500 hover:underline">Выйти</a>
+                    <a href="{{ url_for('create_post') }}" class="text-blue-500">Создать пост</a>
+                    <a href="{{ url_for('logout') }}" class="text-blue-500">Выйти</a>
                 {% else %}
-                    <a href="{{ url_for('login') }}" class="text-blue-500 hover:underline">Войти</a>
-                    <a href="{{ url_for('register') }}" class="text-blue-500 hover:underline">Регистрация</a>
+                    <a href="{{ url_for('login') }}" class="text-blue-500">Войти</a>
+                    <a href="{{ url_for('register') }}" class="text-blue-500">Регистрация</a>
                 {% endif %}
             </div>
         </div>
@@ -288,9 +306,12 @@ def index():
                         <i class="{'fas text-blue-500' if user_liked_post(post.id) else 'far'} fa-heart"></i>
                     </button>
                     <span id="like-count-{post.id}" class="text-blue-300">{post.likes}</span>
-                    <a href="{url_for('view_post', post_id=post.id)}" class="ml-4 text-blue-500 hover:underline">
+                    <a href="{url_for('view_post', post_id=post.id)}" class="ml-4 text-blue-500">
                         Комментарии
                     </a>
+                    {% if session.get('username') == post.author %}
+                        <button onclick="deletePost({post.id})" class="ml-4 text-red-500">Удалить</button>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -336,7 +357,7 @@ def render_register_form(error):
             <input type="password" name="password" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Пароль">
             <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Зарегистрироваться</button>
         </form>
-        <p class="mt-4 text-sm text-blue-300">Уже есть аккаунт? <a href="{url_for('login')}" class="text-blue-400 underline">Войти</a></p>
+        <p class="mt-4 text-sm text-blue-300">Уже есть аккаунт? <a href="{url_for('login')}" class="text-blue-400">Войти</a></p>
     </div>
     """
 
@@ -350,7 +371,7 @@ def render_login_form(error):
             <input type="password" name="password" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Пароль">
             <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Войти</button>
         </form>
-        <p class="mt-4 text-sm text-blue-300">Нет аккаунта? <a href="{url_for('register')}" class="text-blue-400 underline">Зарегистрироваться</a></p>
+        <p class="mt-4 text-sm text-blue-300">Нет аккаунта? <a href="{url_for('register')}" class="text-blue-400">Зарегистрироваться</a></p>
     </div>
     """
 
@@ -382,8 +403,6 @@ def login():
 def logout():
     if 'username' in session:
         session.pop('username', None)
-        # Использование flask.flash требует конфигурации приложения,
-        # поэтому мы используем перенаправление с уведомлением через параметр запроса
         return redirect(url_for('login') + '?logged_out=1')
     return redirect(url_for('login'))
 
@@ -439,7 +458,7 @@ def view_post(post_id):
                 </div>
                 <p class="mt-1 comment-content">{comment.content}</p>
                 <div class="ml-4 mt-2">
-                    <a href="#" onclick="toggleReplyForm({comment.id}); return false;" class="text-blue-500 hover:underline text-sm">Ответить</a>
+                    <a href="#" onclick="toggleReplyForm({comment.id}); return false;" class="text-blue-500 hover:text-blue-600">Ответить</a>
                     <div id="reply-form-{comment.id}" class="hidden mt-2">
                         <form action="{url_for('add_comment', post_id=post.id)}" method="post" class="flex flex-col gap-2">
                             <input type="hidden" name="parent_id" value="{comment.id}">
@@ -468,6 +487,9 @@ def view_post(post_id):
                     <i class="{'fas text-blue-500' if user_liked_post(post.id) else 'far'} fa-heart"></i>
                 </button>
                 <span id="like-count-{post.id}" class="text-blue-300">{post.likes}</span>
+                {% if session.get('username') == post.author %}
+                    <button onclick="deletePost({post.id})" class="ml-4 text-red-500">Удалить</button>
+                {% endif %}
             </div>
         </div>
 
@@ -548,6 +570,24 @@ def like_post(post_id):
     db.session.commit()
 
     return jsonify({"success": True, "likes": post.likes, "liked": liked})
+
+@app.route('/delete/<int:post_id>', methods=['POST'])
+def delete_post(post_id):
+    if not is_logged_in():
+        return jsonify({"success": False, "message": "Необходимо войти"}), 401
+
+    post = Post.query.get_or_404(post_id)
+
+    if post.author != session['username']:
+        return jsonify({"success": False, "message": "Вы не можете удалить этот пост"}), 403
+
+    # Delete the post and associated comments and likes
+    Comment.query.filter_by(post_id=post_id).delete()
+    Like.query.filter_by(post_id=post_id).delete()
+    db.session.delete(post)
+    db.session.commit()
+
+    return jsonify({"success": True, "message": "Пост успешно удален"})
 
 if __name__ == '__main__':
     with app.app_context():
