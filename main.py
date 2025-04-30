@@ -315,7 +315,7 @@ def index():
                 </div>
             </div>
         </div>
-        """, post=post) for post in posts
+        """, post=post, user_liked_post=user_liked_post) for post in posts
     )
     return render_template_string(base_html, title="Главная", content=posts_html)
 
@@ -506,7 +506,7 @@ def view_post(post_id):
             </div>
         </div>
     </div>
-    """, post=post, comments_html=comments_html)
+    """, post=post, comments_html=comments_html, user_liked_post=user_liked_post)
 
     return render_template_string(base_html, title=post.title, content=content)
 
