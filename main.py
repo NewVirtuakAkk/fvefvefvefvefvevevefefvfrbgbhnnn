@@ -8,6 +8,7 @@ app = Flask(__name__)
 app.secret_key = 'super_secret_key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///nerestreddit.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SESSION_TYPE'] = 'filesystem'
 
 db = SQLAlchemy(app)
 
@@ -111,6 +112,63 @@ base_html = """
                 }
             } catch (error) {
                 console.error('Error liking post:', error);
+            }
+        }
+
+        async function registerUser(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                showNotification(data.message, 'success');
+                setTimeout(() => {
+                    window.location.href = data.redirect;
+                }, 1000);
+            } else {
+                showNotification(data.message, 'error');
+            }
+        }
+
+        async function loginUser(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                showNotification(data.message, 'success');
+                setTimeout(() => {
+                    window.location.href = data.redirect;
+                }, 1000);
+            } else {
+                showNotification(data.message, 'error');
+            }
+        }
+
+        async function createPost(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                showNotification(data.message, 'success');
+                setTimeout(() => {
+                    window.location.href = data.redirect;
+                }, 1000);
+            } else {
+                showNotification(data.message, 'error');
             }
         }
 
@@ -237,7 +295,7 @@ def index():
 def register():
     if is_logged_in():
         return redirect(url_for('index'))
-        
+
     error = ""
     notification = None
 
@@ -246,9 +304,9 @@ def register():
         password = request.form['password'].strip()
 
         if not username or not password:
-            error = "Пожалуйста, заполните все поля."
+            return jsonify({"success": False, "message": "Пожалуйста, заполните все поля."})
         elif User.query.filter_by(username=username).first():
-            error = "Пользователь уже существует."
+            return jsonify({"success": False, "message": "Пользователь уже существует."})
         else:
             hashed_pw = generate_password_hash(password)
             new_user = User(username=username, password=hashed_pw)
@@ -257,8 +315,7 @@ def register():
 
             # Automatically log in the user after registration
             session['username'] = new_user.username
-            notification = {"message": "Аккаунт успешно создан!", "type": "success"}
-            return redirect(url_for('index'))
+            return jsonify({"success": True, "message": "Аккаунт успешно создан!", "redirect": url_for('index')})
 
     return render_template_string(base_html, title="Регистрация", content=render_register_form(error), notification=notification)
 
@@ -267,7 +324,7 @@ def render_register_form(error):
     <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto">
         <h2 class="text-xl font-bold mb-4 text-blue-200">Регистрация</h2>
         {"<p class='text-red-400 mb-2'>" + error + "</p>" if error else ""}
-        <form method="post" class="space-y-4">
+        <form method="post" class="space-y-4" onsubmit="registerUser(event)">
             <input name="username" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Имя пользователя">
             <input type="password" name="password" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Пароль">
             <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Зарегистрироваться</button>
@@ -281,7 +338,7 @@ def render_login_form(error):
     <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto">
         <h2 class="text-xl font-bold mb-4 text-blue-200">Вход</h2>
         {"<p class='text-red-400 mb-2'>" + error + "</p>" if error else ""}
-        <form method="post" class="space-y-4">
+        <form method="post" class="space-y-4" onsubmit="loginUser(event)">
             <input name="username" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Имя пользователя">
             <input type="password" name="password" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Пароль">
             <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Войти</button>
@@ -294,24 +351,23 @@ def render_login_form(error):
 def login():
     if is_logged_in():
         return redirect(url_for('index'))
-        
+
     error = ""
     notification = None
-    
+
     if request.method == 'POST':
         username = request.form['username'].strip()
         password = request.form['password'].strip()
-        
+
         if not username or not password:
-            error = "Пожалуйста, заполните все поля."
+            return jsonify({"success": False, "message": "Пожалуйста, заполните все поля."})
         else:
             user = User.query.filter_by(username=username).first()
             if user and check_password_hash(user.password, password):
                 session['username'] = user.username
-                notification = {"message": "Успешный вход!", "type": "success"}
-                return redirect(url_for('index'))
+                return jsonify({"success": True, "message": "Успешный вход!", "redirect": url_for('index')})
             else:
-                error = "Неверные имя пользователя или пароль."
+                return jsonify({"success": False, "message": "Неверные имя пользователя или пароль."})
 
     return render_template_string(base_html, title="Вход", content=render_login_form(error), notification=notification)
 
@@ -335,19 +391,18 @@ def create_post():
         title = request.form['title'].strip()
         content = request.form['content'].strip()
         if not title or not content:
-            error = "Заполните все поля."
+            return jsonify({"success": False, "message": "Заполните все поля."})
         else:
             post = Post(title=title, content=content, author=session['username'])
             db.session.add(post)
             db.session.commit()
-            notification = {"message": "Пост успешно создан!", "type": "success"}
-            return redirect(url_for('index'))
+            return jsonify({"success": True, "message": "Пост успешно создан!", "redirect": url_for('index')})
 
     form = f"""
     <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto">
         <h2 class="text-xl font-bold mb-4 text-blue-200">Новый пост</h2>
         {"<p class='text-red-400 mb-2'>" + error + "</p>" if error else ""}
-        <form method="post" class="space-y-4">
+        <form method="post" class="space-y-4" onsubmit="createPost(event)">
             <input name="title" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Заголовок">
             <textarea name="content" class="w-full p-2 border rounded h-32 bg-blue-800 text-blue-100" placeholder="Содержание..."></textarea>
             <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Опубликовать</button>
@@ -433,19 +488,19 @@ def add_comment(post_id):
 
     content = request.form['content'].strip()
     parent_id = request.form.get('parent_id')
-    
+
     if not content:
         return redirect(url_for('view_post', post_id=post_id))
-    
+
     # Проверка существования поста
     post = Post.query.get_or_404(post_id)
-    
+
     # Проверка существования родительского комментария, если он указан
     if parent_id:
         parent_comment = Comment.query.get(parent_id)
         if not parent_comment or parent_comment.post_id != post_id:
             return redirect(url_for('view_post', post_id=post_id))
-    
+
     comment = Comment(
         content=content,
         author=session['username'],
@@ -465,7 +520,7 @@ def like_post(post_id):
     user_id = get_user_id()
     if not user_id:
         return jsonify({"success": False, "error": "Пользователь не найден"}), 401
-    
+
     post = Post.query.get_or_404(post_id)
 
     # Check if the user has already liked the post
