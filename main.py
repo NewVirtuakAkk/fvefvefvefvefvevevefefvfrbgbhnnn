@@ -295,27 +295,27 @@ def index():
         return redirect(url_for('login'))
     posts = Post.query.order_by(Post.created_at.desc()).all()
     posts_html = "".join(
-        f"""
+        render_template_string("""
         <div class='post-container'>
-            <h2 class='text-xl font-semibold post-title'><a href='{url_for('view_post', post_id=post.id)}'>{post.title}</a></h2>
-            <p class='mt-2 post-content'>{post.content}</p>
+            <h2 class='text-xl font-semibold post-title'><a href='{{ url_for('view_post', post_id=post.id) }}'>{{ post.title }}</a></h2>
+            <p class='mt-2 post-content'>{{ post.content }}</p>
             <div class='flex justify-between items-center mt-4'>
-                <p class='text-sm text-blue-300'>Автор: {post.author} | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
+                <p class='text-sm text-blue-300'>Автор: {{ post.author }} | {{ post.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
                 <div class='flex items-center'>
-                    <button id="like-btn-{post.id}" onclick="likePost({post.id})" class="mr-1 text-blue-300 hover:text-blue-500">
-                        <i class="{'fas text-blue-500' if user_liked_post(post.id) else 'far'} fa-heart"></i>
+                    <button id="like-btn-{{ post.id }}" onclick="likePost({{ post.id }})" class="mr-1 text-blue-300 hover:text-blue-500">
+                        <i class="{% if user_liked_post(post.id) %}fas text-blue-500{% else %}far{% endif %} fa-heart"></i>
                     </button>
-                    <span id="like-count-{post.id}" class="text-blue-300">{post.likes}</span>
-                    <a href="{url_for('view_post', post_id=post.id)}" class="ml-4 text-blue-500">
+                    <span id="like-count-{{ post.id }}" class="text-blue-300">{{ post.likes }}</span>
+                    <a href="{{ url_for('view_post', post_id=post.id) }}" class="ml-4 text-blue-500">
                         Комментарии
                     </a>
                     {% if session.get('username') == post.author %}
-                        <button onclick="deletePost({post.id})" class="ml-4 text-red-500">Удалить</button>
+                        <button onclick="deletePost({{ post.id }})" class="ml-4 text-red-500">Удалить</button>
                     {% endif %}
                 </div>
             </div>
         </div>
-        """ for post in posts
+        """, post=post) for post in posts
     )
     return render_template_string(base_html, title="Главная", content=posts_html)
 
@@ -348,32 +348,32 @@ def register():
     return render_template_string(base_html, title="Регистрация", content=render_register_form(error), notification=notification)
 
 def render_register_form(error):
-    return f"""
+    return render_template_string("""
     <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto">
         <h2 class="text-xl font-bold mb-4 text-blue-200">Регистрация</h2>
-        {"<p class='text-red-400 mb-2'>" + error + "</p>" if error else ""}
+        {% if error %}<p class='text-red-400 mb-2'>{{ error }}</p>{% endif %}
         <form method="post" class="space-y-4" onsubmit="registerUser(event)">
             <input name="username" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Имя пользователя">
             <input type="password" name="password" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Пароль">
             <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Зарегистрироваться</button>
         </form>
-        <p class="mt-4 text-sm text-blue-300">Уже есть аккаунт? <a href="{url_for('login')}" class="text-blue-400">Войти</a></p>
+        <p class="mt-4 text-sm text-blue-300">Уже есть аккаунт? <a href="{{ url_for('login') }}" class="text-blue-400">Войти</a></p>
     </div>
-    """
+    """, error=error)
 
 def render_login_form(error):
-    return f"""
+    return render_template_string("""
     <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto">
         <h2 class="text-xl font-bold mb-4 text-blue-200">Вход</h2>
-        {"<p class='text-red-400 mb-2'>" + error + "</p>" if error else ""}
+        {% if error %}<p class='text-red-400 mb-2'>{{ error }}</p>{% endif %}
         <form method="post" class="space-y-4" onsubmit="loginUser(event)">
             <input name="username" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Имя пользователя">
             <input type="password" name="password" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Пароль">
             <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Войти</button>
         </form>
-        <p class="mt-4 text-sm text-blue-300">Нет аккаунта? <a href="{url_for('register')}" class="text-blue-400">Зарегистрироваться</a></p>
+        <p class="mt-4 text-sm text-blue-300">Нет аккаунта? <a href="{{ url_for('register') }}" class="text-blue-400">Зарегистрироваться</a></p>
     </div>
-    """
+    """, error=error)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -424,17 +424,17 @@ def create_post():
             db.session.commit()
             return jsonify({"success": True, "message": "Пост успешно создан!", "redirect": url_for('index')})
 
-    form = f"""
+    form = render_template_string("""
     <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto">
         <h2 class="text-xl font-bold mb-4 text-blue-200">Новый пост</h2>
-        {"<p class='text-red-400 mb-2'>" + error + "</p>" if error else ""}
+        {% if error %}<p class='text-red-400 mb-2'>{{ error }}</p>{% endif %}
         <form method="post" class="space-y-4" onsubmit="createPost(event)">
             <input name="title" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Заголовок">
             <textarea name="content" class="w-full p-2 border rounded h-32 bg-blue-800 text-blue-100" placeholder="Содержание..."></textarea>
             <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Опубликовать</button>
         </form>
     </div>
-    """
+    """, error=error)
     return render_template_string(base_html, title="Создать пост", content=form, notification=notification)
 
 @app.route('/post/<int:post_id>')
@@ -450,45 +450,45 @@ def view_post(post_id):
         for comment in comments:
             replies = Comment.query.filter_by(parent_id=comment.id).order_by(Comment.created_at).all()
             replies_html = render_comments(replies) if replies else ""
-            comments_html += f"""
+            comments_html += render_template_string("""
             <div class="comment-container">
                 <div class="flex items-center">
-                    <span class="font-medium text-blue-200">{comment.author}</span>
-                    <span class="text-xs text-blue-300 ml-2">{comment.created_at.strftime('%d.%m.%Y %H:%M')}</span>
+                    <span class="font-medium text-blue-200">{{ comment.author }}</span>
+                    <span class="text-xs text-blue-300 ml-2">{{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
                 </div>
-                <p class="mt-1 comment-content">{comment.content}</p>
+                <p class="mt-1 comment-content">{{ comment.content }}</p>
                 <div class="ml-4 mt-2">
-                    <a href="#" onclick="toggleReplyForm({comment.id}); return false;" class="text-blue-500 hover:text-blue-600">Ответить</a>
-                    <div id="reply-form-{comment.id}" class="hidden mt-2">
-                        <form action="{url_for('add_comment', post_id=post.id)}" method="post" class="flex flex-col gap-2">
-                            <input type="hidden" name="parent_id" value="{comment.id}">
+                    <a href="#" onclick="toggleReplyForm({{ comment.id }}); return false;" class="text-blue-500 hover:text-blue-600">Ответить</a>
+                    <div id="reply-form-{{ comment.id }}" class="hidden mt-2">
+                        <form action="{{ url_for('add_comment', post_id=post.id) }}" method="post" class="flex flex-col gap-2">
+                            <input type="hidden" name="parent_id" value="{{ comment.id }}">
                             <textarea name="content" class="w-full p-2 border rounded h-24 bg-blue-900 text-gray-200" placeholder="Добавить ответ..."></textarea>
                             <button class="bg-blue-500 text-white px-4 py-2 rounded self-end hover:bg-blue-600">Отправить</button>
                         </form>
                     </div>
                 </div>
                 <div class="ml-4 mt-2">
-                    {replies_html}
+                    {{ replies_html | safe }}
                 </div>
             </div>
-            """
+            """, comment=comment, replies_html=replies_html)
         return comments_html
 
     comments_html = render_comments(comments)
 
-    content = f"""
+    content = render_template_string("""
     <div class="post-container">
-        <h1 class="text-2xl font-bold post-title mb-2">{post.title}</h1>
-        <p class="mb-4 post-content">{post.content}</p>
+        <h1 class="text-2xl font-bold post-title mb-2">{{ post.title }}</h1>
+        <p class="mb-4 post-content">{{ post.content }}</p>
         <div class="flex justify-between items-center mb-6">
-            <p class="text-sm text-blue-300">Автор: {post.author} | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
+            <p class="text-sm text-blue-300">Автор: {{ post.author }} | {{ post.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
             <div class="flex items-center">
-                <button id="like-btn-{post.id}" onclick="likePost({post.id})" class="mr-1 text-blue-300 hover:text-blue-500">
-                    <i class="{'fas text-blue-500' if user_liked_post(post.id) else 'far'} fa-heart"></i>
+                <button id="like-btn-{{ post.id }}" onclick="likePost({{ post.id }})" class="mr-1 text-blue-300 hover:text-blue-500">
+                    <i class="{% if user_liked_post(post.id) %}fas text-blue-500{% else %}far{% endif %} fa-heart"></i>
                 </button>
-                <span id="like-count-{post.id}" class="text-blue-300">{post.likes}</span>
+                <span id="like-count-{{ post.id }}" class="text-blue-300">{{ post.likes }}</span>
                 {% if session.get('username') == post.author %}
-                    <button onclick="deletePost({post.id})" class="ml-4 text-red-500">Удалить</button>
+                    <button onclick="deletePost({{ post.id }})" class="ml-4 text-red-500">Удалить</button>
                 {% endif %}
             </div>
         </div>
@@ -496,17 +496,17 @@ def view_post(post_id):
         <div class="mt-8">
             <h3 class="text-xl font-semibold mb-4">Комментарии</h3>
             <div class="mb-6">
-                <form action="{url_for('add_comment', post_id=post.id)}" method="post" class="flex flex-col gap-2">
+                <form action="{{ url_for('add_comment', post_id=post.id) }}" method="post" class="flex flex-col gap-2">
                     <textarea name="content" class="w-full p-2 border rounded h-24 bg-blue-900 text-gray-200" placeholder="Добавить комментарий..."></textarea>
                     <button class="bg-blue-500 text-white px-4 py-2 rounded self-end hover:bg-blue-600">Отправить</button>
                 </form>
             </div>
             <div class="space-y-4">
-                {comments_html if comments else "<p class='text-blue-300'>Пока нет комментариев</p>"}
+                {{ comments_html | safe }}
             </div>
         </div>
     </div>
-    """
+    """, post=post, comments_html=comments_html)
 
     return render_template_string(base_html, title=post.title, content=content)
 
