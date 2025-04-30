@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, url_for, session, render_template_string, flash, jsonify
+from flask import Flask, request, redirect, url_for, session, render_template_string, flash, jsonify, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 import os
@@ -246,7 +246,10 @@ base_html = """
 <body class="bg-blue-950 text-blue-100">
     <div class="max-w-3xl mx-auto py-8 px-4">
         <div class="mb-6 flex justify-between items-center">
-            <h1 class="text-3xl font-bold text-blue-500"><a href='{{ url_for('index') }}'>NerestReddit</a></h1>
+            <div class="flex items-center">
+                <img src="{{ url_for('serve_image', filename='nerest.png') }}" alt="NerestReddit Logo" class="h-10 mr-2">
+                <h1 class="text-3xl font-bold text-red-500"><a href='{{ url_for('index') }}'>NerestReddit</a></h1>
+            </div>
             <div class="space-x-4">
                 {% if session.get('username') %}
                     <span class="text-blue-300">Привет, {{ session['username'] }}!</span>
@@ -263,6 +266,10 @@ base_html = """
 </body>
 </html>
 """
+
+@app.route('/serve_image/<filename>')
+def serve_image(filename):
+    return send_from_directory(os.path.dirname(__file__), filename)
 
 @app.route('/')
 def index():
