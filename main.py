@@ -94,7 +94,11 @@ base_html = """
         async function likePost(postId) {
             try {
                 const response = await fetch(`/like/${postId}`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
                 });
                 const data = await response.json();
                 if (data.success) {
@@ -119,11 +123,18 @@ base_html = """
             if (confirm('Вы уверены, что хотите удалить этот пост?')) {
                 try {
                     const response = await fetch(`/delete/${postId}`, {
-                        method: 'POST'
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
                     });
                     const data = await response.json();
                     if (data.success) {
-                        window.location.href = "/";
+                        showNotification(data.message, 'success');
+                        setTimeout(() => {
+                            window.location.href = data.redirect;
+                        }, 1000);
                     } else {
                         showNotification(data.message, 'error');
                     }
@@ -226,8 +237,12 @@ base_html = """
         a {
             color: #3b82f6;
         }
-        a:hover {
-            text-decoration: none;
+        .nav-link {
+            text-decoration: none !important;
+        }
+        .nav-link:hover {
+            color: #60a5fa;
+            text-decoration: none !important;
         }
         .post-container {
             background-color: #1e3a8a;
@@ -266,16 +281,16 @@ base_html = """
         <div class="mb-6 flex justify-between items-center">
             <div class="flex items-center">
                 <img src="{{ url_for('serve_image', filename='nerest.png') }}" alt="NerestReddit Logo" class="h-10 mr-2">
-                <h1 class="text-3xl font-bold text-red-500"><a href='{{ url_for('index') }}'>NerestReddit</a></h1>
+                <h1 class="text-3xl font-bold text-red-500"><a href='{{ url_for('index') }}' class="nav-link">NerestReddit</a></h1>
             </div>
             <div class="space-x-4">
                 {% if session.get('username') %}
                     <span class="text-blue-300">Привет, {{ session['username'] }}!</span>
-                    <a href="{{ url_for('create_post') }}" class="text-blue-500">Создать пост</a>
-                    <a href="{{ url_for('logout') }}" class="text-blue-500">Выйти</a>
+                    <a href="{{ url_for('create_post') }}" class="text-blue-500 nav-link">Создать пост</a>
+                    <a href="{{ url_for('logout') }}" class="text-blue-500 nav-link">Выйти</a>
                 {% else %}
-                    <a href="{{ url_for('login') }}" class="text-blue-500">Войти</a>
-                    <a href="{{ url_for('register') }}" class="text-blue-500">Регистрация</a>
+                    <a href="{{ url_for('login') }}" class="text-blue-500 nav-link">Войти</a>
+                    <a href="{{ url_for('register') }}" class="text-blue-500 nav-link">Регистрация</a>
                 {% endif %}
             </div>
         </div>
@@ -295,27 +310,25 @@ def index():
         return redirect(url_for('login'))
     posts = Post.query.order_by(Post.created_at.desc()).all()
     posts_html = "".join(
-        render_template_string("""
+        f"""
         <div class='post-container'>
-            <h2 class='text-xl font-semibold post-title'><a href='{{ url_for('view_post', post_id=post.id) }}'>{{ post.title }}</a></h2>
-            <p class='mt-2 post-content'>{{ post.content }}</p>
+            <h2 class='text-xl font-semibold post-title'><a href='{url_for('view_post', post_id=post.id)}' class="nav-link">{post.title}</a></h2>
+            <p class='mt-2 post-content'>{post.content}</p>
             <div class='flex justify-between items-center mt-4'>
-                <p class='text-sm text-blue-300'>Автор: {{ post.author }} | {{ post.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+                <p class='text-sm text-blue-300'>Автор: {post.author} | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
                 <div class='flex items-center'>
-                    <button id="like-btn-{{ post.id }}" onclick="likePost({{ post.id }})" class="mr-1 text-blue-300 hover:text-blue-500">
-                        <i class="{% if user_liked_post(post.id) %}fas text-blue-500{% else %}far{% endif %} fa-heart"></i>
+                    <button id="like-btn-{post.id}" onclick="likePost({post.id})" class="mr-1 text-blue-300 hover:text-blue-500">
+                        <i class="{'fas text-blue-500' if user_liked_post(post.id) else 'far'} fa-heart"></i>
                     </button>
-                    <span id="like-count-{{ post.id }}" class="text-blue-300">{{ post.likes }}</span>
-                    <a href="{{ url_for('view_post', post_id=post.id) }}" class="ml-4 text-blue-500">
+                    <span id="like-count-{post.id}" class="text-blue-300">{post.likes}</span>
+                    <a href="{url_for('view_post', post_id=post.id)}" class="ml-4 text-blue-500 nav-link">
                         Комментарии
                     </a>
-                    {% if session.get('username') == post.author %}
-                        <button onclick="deletePost({{ post.id }})" class="ml-4 text-red-500">Удалить</button>
-                    {% endif %}
+                    {f'<button onclick="deletePost({post.id})" class="ml-4 text-red-500"><i class="fas fa-trash"></i></button>' if session.get('username') == post.author else ''}
                 </div>
             </div>
         </div>
-        """, post=post, user_liked_post=user_liked_post) for post in posts
+        """ for post in posts
     )
     return render_template_string(base_html, title="Главная", content=posts_html)
 
@@ -348,32 +361,32 @@ def register():
     return render_template_string(base_html, title="Регистрация", content=render_register_form(error), notification=notification)
 
 def render_register_form(error):
-    return render_template_string("""
+    return f"""
     <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto">
         <h2 class="text-xl font-bold mb-4 text-blue-200">Регистрация</h2>
-        {% if error %}<p class='text-red-400 mb-2'>{{ error }}</p>{% endif %}
+        {"<p class='text-red-400 mb-2'>" + error + "</p>" if error else ""}
         <form method="post" class="space-y-4" onsubmit="registerUser(event)">
             <input name="username" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Имя пользователя">
             <input type="password" name="password" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Пароль">
             <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Зарегистрироваться</button>
         </form>
-        <p class="mt-4 text-sm text-blue-300">Уже есть аккаунт? <a href="{{ url_for('login') }}" class="text-blue-400">Войти</a></p>
+        <p class="mt-4 text-sm text-blue-300">Уже есть аккаунт? <a href="{url_for('login')}" class="text-blue-400 nav-link">Войти</a></p>
     </div>
-    """, error=error)
+    """
 
 def render_login_form(error):
-    return render_template_string("""
+    return f"""
     <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto">
         <h2 class="text-xl font-bold mb-4 text-blue-200">Вход</h2>
-        {% if error %}<p class='text-red-400 mb-2'>{{ error }}</p>{% endif %}
+        {"<p class='text-red-400 mb-2'>" + error + "</p>" if error else ""}
         <form method="post" class="space-y-4" onsubmit="loginUser(event)">
             <input name="username" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Имя пользователя">
             <input type="password" name="password" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Пароль">
             <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Войти</button>
         </form>
-        <p class="mt-4 text-sm text-blue-300">Нет аккаунта? <a href="{{ url_for('register') }}" class="text-blue-400">Зарегистрироваться</a></p>
+        <p class="mt-4 text-sm text-blue-300">Нет аккаунта? <a href="{url_for('register')}" class="text-blue-400 nav-link">Зарегистрироваться</a></p>
     </div>
-    """, error=error)
+    """
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -403,6 +416,8 @@ def login():
 def logout():
     if 'username' in session:
         session.pop('username', None)
+        # Использование flask.flash требует конфигурации приложения,
+        # поэтому мы используем перенаправление с уведомлением через параметр запроса
         return redirect(url_for('login') + '?logged_out=1')
     return redirect(url_for('login'))
 
@@ -424,17 +439,17 @@ def create_post():
             db.session.commit()
             return jsonify({"success": True, "message": "Пост успешно создан!", "redirect": url_for('index')})
 
-    form = render_template_string("""
+    form = f"""
     <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto">
         <h2 class="text-xl font-bold mb-4 text-blue-200">Новый пост</h2>
-        {% if error %}<p class='text-red-400 mb-2'>{{ error }}</p>{% endif %}
+        {"<p class='text-red-400 mb-2'>" + error + "</p>" if error else ""}
         <form method="post" class="space-y-4" onsubmit="createPost(event)">
             <input name="title" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Заголовок">
             <textarea name="content" class="w-full p-2 border rounded h-32 bg-blue-800 text-blue-100" placeholder="Содержание..."></textarea>
             <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Опубликовать</button>
         </form>
     </div>
-    """, error=error)
+    """
     return render_template_string(base_html, title="Создать пост", content=form, notification=notification)
 
 @app.route('/post/<int:post_id>')
@@ -450,63 +465,61 @@ def view_post(post_id):
         for comment in comments:
             replies = Comment.query.filter_by(parent_id=comment.id).order_by(Comment.created_at).all()
             replies_html = render_comments(replies) if replies else ""
-            comments_html += render_template_string("""
+            comments_html += f"""
             <div class="comment-container">
                 <div class="flex items-center">
-                    <span class="font-medium text-blue-200">{{ comment.author }}</span>
-                    <span class="text-xs text-blue-300 ml-2">{{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                    <span class="font-medium text-blue-200">{comment.author}</span>
+                    <span class="text-xs text-blue-300 ml-2">{comment.created_at.strftime('%d.%m.%Y %H:%M')}</span>
                 </div>
-                <p class="mt-1 comment-content">{{ comment.content }}</p>
+                <p class="mt-1 comment-content">{comment.content}</p>
                 <div class="ml-4 mt-2">
-                    <a href="#" onclick="toggleReplyForm({{ comment.id }}); return false;" class="text-blue-500 hover:text-blue-600">Ответить</a>
-                    <div id="reply-form-{{ comment.id }}" class="hidden mt-2">
-                        <form action="{{ url_for('add_comment', post_id=post.id) }}" method="post" class="flex flex-col gap-2">
-                            <input type="hidden" name="parent_id" value="{{ comment.id }}">
+                    <a href="#" onclick="toggleReplyForm({comment.id}); return false;" class="text-blue-500 nav-link text-sm">Ответить</a>
+                    <div id="reply-form-{comment.id}" class="hidden mt-2">
+                        <form action="{url_for('add_comment', post_id=post.id)}" method="post" class="flex flex-col gap-2">
+                            <input type="hidden" name="parent_id" value="{comment.id}">
                             <textarea name="content" class="w-full p-2 border rounded h-24 bg-blue-900 text-gray-200" placeholder="Добавить ответ..."></textarea>
                             <button class="bg-blue-500 text-white px-4 py-2 rounded self-end hover:bg-blue-600">Отправить</button>
                         </form>
                     </div>
                 </div>
                 <div class="ml-4 mt-2">
-                    {{ replies_html | safe }}
+                    {replies_html}
                 </div>
             </div>
-            """, comment=comment, replies_html=replies_html)
+            """
         return comments_html
 
     comments_html = render_comments(comments)
 
-    content = render_template_string("""
+    content = f"""
     <div class="post-container">
-        <h1 class="text-2xl font-bold post-title mb-2">{{ post.title }}</h1>
-        <p class="mb-4 post-content">{{ post.content }}</p>
+        <h1 class="text-2xl font-bold post-title mb-2">{post.title}</h1>
+        <p class="mb-4 post-content">{post.content}</p>
         <div class="flex justify-between items-center mb-6">
-            <p class="text-sm text-blue-300">Автор: {{ post.author }} | {{ post.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+            <p class="text-sm text-blue-300">Автор: {post.author} | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
             <div class="flex items-center">
-                <button id="like-btn-{{ post.id }}" onclick="likePost({{ post.id }})" class="mr-1 text-blue-300 hover:text-blue-500">
-                    <i class="{% if user_liked_post(post.id) %}fas text-blue-500{% else %}far{% endif %} fa-heart"></i>
+                <button id="like-btn-{post.id}" onclick="likePost({post.id})" class="mr-1 text-blue-300 hover:text-blue-500">
+                    <i class="{'fas text-blue-500' if user_liked_post(post.id) else 'far'} fa-heart"></i>
                 </button>
-                <span id="like-count-{{ post.id }}" class="text-blue-300">{{ post.likes }}</span>
-                {% if session.get('username') == post.author %}
-                    <button onclick="deletePost({{ post.id }})" class="ml-4 text-red-500">Удалить</button>
-                {% endif %}
+                <span id="like-count-{post.id}" class="text-blue-300">{post.likes}</span>
+                {f'<button onclick="deletePost({post.id})" class="ml-4 text-red-500"><i class="fas fa-trash"></i></button>' if session.get('username') == post.author else ''}
             </div>
         </div>
 
         <div class="mt-8">
             <h3 class="text-xl font-semibold mb-4">Комментарии</h3>
             <div class="mb-6">
-                <form action="{{ url_for('add_comment', post_id=post.id) }}" method="post" class="flex flex-col gap-2">
+                <form action="{url_for('add_comment', post_id=post.id)}" method="post" class="flex flex-col gap-2">
                     <textarea name="content" class="w-full p-2 border rounded h-24 bg-blue-900 text-gray-200" placeholder="Добавить комментарий..."></textarea>
                     <button class="bg-blue-500 text-white px-4 py-2 rounded self-end hover:bg-blue-600">Отправить</button>
                 </form>
             </div>
             <div class="space-y-4">
-                {{ comments_html | safe }}
+                {comments_html if comments else "<p class='text-blue-300'>Пока нет комментариев</p>"}
             </div>
         </div>
     </div>
-    """, post=post, comments_html=comments_html, user_liked_post=user_liked_post)
+    """
 
     return render_template_string(base_html, title=post.title, content=content)
 
@@ -577,17 +590,34 @@ def delete_post(post_id):
         return jsonify({"success": False, "message": "Необходимо войти"}), 401
 
     post = Post.query.get_or_404(post_id)
-
+    
+    # Check if the current user is the author of the post
     if post.author != session['username']:
-        return jsonify({"success": False, "message": "Вы не можете удалить этот пост"}), 403
-
-    # Delete the post and associated comments and likes
-    Comment.query.filter_by(post_id=post_id).delete()
+        return jsonify({"success": False, "message": "У вас нет прав для удаления этого поста"}), 403
+    
+    # Delete all likes related to the post
     Like.query.filter_by(post_id=post_id).delete()
+    
+    # Delete all comments related to the post
+    # First delete child comments to avoid foreign key constraint issues
+    child_comments = Comment.query.filter(Comment.parent_id.isnot(None)).all()
+    for comment in child_comments:
+        if Comment.query.filter_by(id=comment.parent_id).first() and \
+           Comment.query.filter_by(id=comment.parent_id).first().post_id == post_id:
+            db.session.delete(comment)
+    
+    # Then delete parent comments
+    Comment.query.filter_by(post_id=post_id).delete()
+    
+    # Finally delete the post
     db.session.delete(post)
     db.session.commit()
-
-    return jsonify({"success": True, "message": "Пост успешно удален"})
+    
+    return jsonify({
+        "success": True, 
+        "message": "Пост успешно удален", 
+        "redirect": url_for('index')
+    })
 
 if __name__ == '__main__':
     with app.app_context():
