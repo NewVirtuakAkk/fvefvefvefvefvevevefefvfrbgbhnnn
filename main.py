@@ -326,7 +326,7 @@ base_html = """
 
 @app.route('/serve_image/<filename>')
 def serve_image(filename):
-    return send_from_directory(os.path.dirname(__file__), filename)
+    return send_from_directory(os.path.join(app.root_path, 'uploads'), filename)
 
 @app.route('/')
 def index():
