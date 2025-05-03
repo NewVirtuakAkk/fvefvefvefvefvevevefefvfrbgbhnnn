@@ -1,15 +1,23 @@
-
 from flask import Flask, request, redirect, url_for, session, render_template_string, flash, jsonify, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
-import os
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from datetime import datetime
+import os
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///nerestreddit.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SESSION_TYPE'] = 'filesystem'
+
+# Initialize Limiter
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"]
+)
 
 db = SQLAlchemy(app)
 
@@ -423,6 +431,7 @@ def logout():
     return redirect(url_for('login'))
 
 @app.route('/create', methods=['GET', 'POST'])
+@limiter.limit("1/10seconds")  # Limit to 1 request per 10 seconds
 def create_post():
     if not is_logged_in():
         return redirect(url_for('login'))
@@ -591,14 +600,14 @@ def delete_post(post_id):
         return jsonify({"success": False, "message": "Необходимо войти"}), 401
 
     post = Post.query.get_or_404(post_id)
-    
+
     # Check if the current user is the author of the post
     if post.author != session['username']:
         return jsonify({"success": False, "message": "У вас нет прав для удаления этого поста"}), 403
-    
+
     # Delete all likes related to the post
     Like.query.filter_by(post_id=post_id).delete()
-    
+
     # Delete all comments related to the post
     # First delete child comments to avoid foreign key constraint issues
     child_comments = Comment.query.filter(Comment.parent_id.isnot(None)).all()
@@ -606,17 +615,17 @@ def delete_post(post_id):
         if Comment.query.filter_by(id=comment.parent_id).first() and \
            Comment.query.filter_by(id=comment.parent_id).first().post_id == post_id:
             db.session.delete(comment)
-    
+
     # Then delete parent comments
     Comment.query.filter_by(post_id=post_id).delete()
-    
+
     # Finally delete the post
     db.session.delete(post)
     db.session.commit()
-    
+
     return jsonify({
-        "success": True, 
-        "message": "Пост успешно удален", 
+        "success": True,
+        "message": "Пост успешно удален",
         "redirect": url_for('index')
     })
 
@@ -624,3 +633,4 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)), debug=True)
+
