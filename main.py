@@ -16,7 +16,8 @@ app.config['SESSION_TYPE'] = 'filesystem'
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["200 per day", "50 per hour"]
+    default_limits=["200 per day", "50 per hour"],
+    default_limits_exceeded_message="Похоже На Спам! Лимит-1 публикация раз в 10 секунд!"
 )
 
 db = SQLAlchemy(app)
@@ -462,6 +463,15 @@ def create_post():
     """
     return render_template_string(base_html, title="Создать пост", content=form, notification=notification)
 
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return render_template_string(base_html, title="Похоже На Спам!", content="""
+    <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto">
+        <h2 class="text-xl font-bold mb-4 text-blue-200">Похоже На Спам!</h2>
+        <p class="text-blue-300">Лимит-1 публикация раз в 10 секунд!</p>
+    </div>
+    """)
+
 @app.route('/post/<int:post_id>')
 def view_post(post_id):
     if not is_logged_in():
@@ -633,4 +643,3 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)), debug=True)
-
