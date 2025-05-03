@@ -1,6 +1,6 @@
+
 from flask import Flask, request, redirect, url_for, session, render_template_string, flash, jsonify, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 import os
 from datetime import datetime
@@ -10,8 +10,6 @@ app.secret_key = 'super_secret_key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///nerestreddit.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SESSION_TYPE'] = 'filesystem'
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB upload limit
 
 db = SQLAlchemy(app)
 
@@ -20,7 +18,6 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
-    avatar = db.Column(db.String(200), default='default_avatar.png')
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -205,25 +202,6 @@ base_html = """
             }
         }
 
-        async function editProfile(event) {
-            event.preventDefault();
-            const form = event.target;
-            const formData = new FormData(form);
-            const response = await fetch(form.action, {
-                method: 'POST',
-                body: formData
-            });
-            const data = await response.json();
-            if (data.success) {
-                showNotification(data.message, 'success');
-                setTimeout(() => {
-                    window.location.href = data.redirect;
-                }, 1000);
-            } else {
-                showNotification(data.message, 'error');
-            }
-        }
-
         function toggleReplyForm(commentId) {
             const replyForm = document.getElementById(`reply-form-${commentId}`);
             replyForm.classList.toggle('hidden');
@@ -309,7 +287,6 @@ base_html = """
             <div class="space-x-4">
                 {% if session.get('username') %}
                     <span class="text-blue-300">Привет, {{ session['username'] }}!</span>
-                    <a href="{{ url_for('profile', username=session['username']) }}" class="text-blue-500 nav-link">Мой профиль</a>
                     <a href="{{ url_for('create_post') }}" class="text-blue-500 nav-link">Создать пост</a>
                     <a href="{{ url_for('logout') }}" class="text-blue-500 nav-link">Выйти</a>
                 {% else %}
@@ -326,7 +303,7 @@ base_html = """
 
 @app.route('/serve_image/<filename>')
 def serve_image(filename):
-    return send_from_directory(os.path.join(app.root_path, 'uploads'), filename)
+    return send_from_directory(os.path.dirname(__file__), filename)
 
 @app.route('/')
 def index():
@@ -339,7 +316,7 @@ def index():
             <h2 class='text-xl font-semibold post-title'><a href='{url_for('view_post', post_id=post.id)}' class="nav-link">{post.title}</a></h2>
             <p class='mt-2 post-content'>{post.content}</p>
             <div class='flex justify-between items-center mt-4'>
-                <p class='text-sm text-blue-300'>Автор: <a href='{url_for('profile', username=post.author)}' class="nav-link">{post.author}</a> | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
+                <p class='text-sm text-blue-300'>Автор: {post.author} | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
                 <div class='flex items-center'>
                     <button id="like-btn-{post.id}" onclick="likePost({post.id})" class="mr-1 text-blue-300 hover:text-blue-500">
                         <i class="{'fas text-blue-500' if user_liked_post(post.id) else 'far'} fa-heart"></i>
@@ -520,7 +497,7 @@ def view_post(post_id):
         <h1 class="text-2xl font-bold post-title mb-2">{post.title}</h1>
         <p class="mb-4 post-content">{post.content}</p>
         <div class="flex justify-between items-center mb-6">
-            <p class='text-sm text-blue-300'>Автор: <a href='{url_for('profile', username=post.author)}' class="nav-link">{post.author}</a> | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
+            <p class="text-sm text-blue-300">Автор: {post.author} | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
             <div class="flex items-center">
                 <button id="like-btn-{post.id}" onclick="likePost({post.id})" class="mr-1 text-blue-300 hover:text-blue-500">
                     <i class="{'fas text-blue-500' if user_liked_post(post.id) else 'far'} fa-heart"></i>
@@ -614,14 +591,14 @@ def delete_post(post_id):
         return jsonify({"success": False, "message": "Необходимо войти"}), 401
 
     post = Post.query.get_or_404(post_id)
-
+    
     # Check if the current user is the author of the post
     if post.author != session['username']:
         return jsonify({"success": False, "message": "У вас нет прав для удаления этого поста"}), 403
-
+    
     # Delete all likes related to the post
     Like.query.filter_by(post_id=post_id).delete()
-
+    
     # Delete all comments related to the post
     # First delete child comments to avoid foreign key constraint issues
     child_comments = Comment.query.filter(Comment.parent_id.isnot(None)).all()
@@ -629,108 +606,21 @@ def delete_post(post_id):
         if Comment.query.filter_by(id=comment.parent_id).first() and \
            Comment.query.filter_by(id=comment.parent_id).first().post_id == post_id:
             db.session.delete(comment)
-
+    
     # Then delete parent comments
     Comment.query.filter_by(post_id=post_id).delete()
-
+    
     # Finally delete the post
     db.session.delete(post)
     db.session.commit()
-
+    
     return jsonify({
-        "success": True,
-        "message": "Пост успешно удален",
+        "success": True, 
+        "message": "Пост успешно удален", 
         "redirect": url_for('index')
     })
 
-@app.route('/profile/<username>')
-def profile(username):
-    if not is_logged_in():
-        return redirect(url_for('login'))
-
-    user = User.query.filter_by(username=username).first_or_404()
-    posts = Post.query.filter_by(author=username).order_by(Post.created_at.desc()).all()
-
-    posts_html = "".join(
-        f"""
-        <div class='post-container'>
-            <h2 class='text-xl font-semibold post-title'><a href='{url_for('view_post', post_id=post.id)}' class="nav-link">{post.title}</a></h2>
-            <p class='mt-2 post-content'>{post.content}</p>
-            <div class='flex justify-between items-center mt-4'>
-                <p class='text-sm text-blue-300'>Автор: <a href='{url_for('profile', username=post.author)}' class="nav-link">{post.author}</a> | {post.created_at.strftime('%d.%m.%Y %H:%M')}</p>
-                <div class='flex items-center'>
-                    <button id="like-btn-{post.id}" onclick="likePost({post.id})" class="mr-1 text-blue-300 hover:text-blue-500">
-                        <i class="{'fas text-blue-500' if user_liked_post(post.id) else 'far'} fa-heart"></i>
-                    </button>
-                    <span id="like-count-{post.id}" class="text-blue-300">{post.likes}</span>
-                    <a href="{url_for('view_post', post_id=post.id)}" class="ml-4 text-blue-500 nav-link">
-                        Комментарии
-                    </a>
-                    {f'<button onclick="deletePost({post.id})" class="ml-4 text-red-500"><i class="fas fa-trash"></i></button>' if session.get('username') == post.author else ''}
-                </div>
-            </div>
-        </div>
-        """ for post in posts
-    )
-
-    content = f"""
-    <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto text-center">
-        <img src="{url_for('serve_image', filename=user.avatar)}" alt="{user.username}'s Avatar" class="rounded-full w-32 h-32 mx-auto mb-4">
-        <h2 class="text-2xl font-bold mb-2 text-blue-200">{user.username}</h2>
-        {f'<a href="{url_for("edit_profile")}" class="text-blue-500 nav-link">Редактировать профиль</a>' if session["username"] == user.username else ""}
-    </div>
-    <div class="mt-8">
-        <h3 class="text-xl font-semibold mb-4">Посты</h3>
-        {posts_html if posts else "<p class='text-blue-300'>Пока нет постов</p>"}
-    </div>
-    """
-
-    return render_template_string(base_html, title=f"Профиль {user.username}", content=content)
-
-@app.route('/edit_profile', methods=['GET', 'POST'])
-def edit_profile():
-    if not is_logged_in():
-        return redirect(url_for('login'))
-
-    user = User.query.filter_by(username=session['username']).first_or_404()
-    error = ""
-    notification = None
-
-    if request.method == 'POST':
-        new_username = request.form['username'].strip()
-        avatar = request.files.get('avatar')
-
-        if new_username and User.query.filter_by(username=new_username).first() and new_username != user.username:
-            return jsonify({"success": False, "message": "Имя пользователя уже занято."})
-
-        if new_username:
-            user.username = new_username
-            session['username'] = new_username
-
-        if avatar:
-            filename = f"{user.id}_{secure_filename(avatar.filename)}"
-            avatar.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            user.avatar = filename
-
-        db.session.commit()
-        return jsonify({"success": True, "message": "Профиль успешно обновлен!", "redirect": url_for('profile', username=user.username)})
-
-    form = f"""
-    <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto">
-        <h2 class="text-xl font-bold mb-4 text-blue-200">Редактировать профиль</h2>
-        {"<p class='text-red-400 mb-2'>" + error + "</p>" if error else ""}
-        <form method="post" enctype="multipart/form-data" class="space-y-4" onsubmit="editProfile(event)">
-            <input name="username" class="w-full p-2 border rounded bg-blue-800 text-blue-100" placeholder="Новое имя пользователя" value="{user.username}">
-            <input type="file" name="avatar" class="w-full p-2 border rounded bg-blue-800 text-blue-100">
-            <button class="bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-500">Сохранить изменения</button>
-        </form>
-    </div>
-    """
-    return render_template_string(base_html, title="Редактировать профиль", content=form, notification=notification)
-
 if __name__ == '__main__':
-    if not os.path.exists(app.config['UPLOAD_FOLDER']):
-        os.makedirs(app.config['UPLOAD_FOLDER'])
     with app.app_context():
         db.create_all()
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)), debug=True)
