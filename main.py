@@ -1,5 +1,6 @@
 from flask import Flask, request, redirect, url_for, session, render_template_string, flash, jsonify, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 import os
 from datetime import datetime
@@ -186,6 +187,25 @@ base_html = """
         }
 
         async function createPost(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                showNotification(data.message, 'success');
+                setTimeout(() => {
+                    window.location.href = data.redirect;
+                }, 1000);
+            } else {
+                showNotification(data.message, 'error');
+            }
+        }
+
+        async function editProfile(event) {
             event.preventDefault();
             const form = event.target;
             const formData = new FormData(form);
@@ -657,7 +677,7 @@ def profile(username):
     <div class="bg-blue-900 p-6 rounded-xl shadow-md max-w-md mx-auto text-center">
         <img src="{url_for('serve_image', filename=user.avatar)}" alt="{user.username}'s Avatar" class="rounded-full w-32 h-32 mx-auto mb-4">
         <h2 class="text-2xl font-bold mb-2 text-blue-200">{user.username}</h2>
-        {f'<a href="{url_for('edit_profile')}" class="text-blue-500 nav-link">Редактировать профиль</a>' if session['username'] == user.username else ''}
+        {f'<a href="{url_for("edit_profile")}" class="text-blue-500 nav-link">Редактировать профиль</a>' if session["username"] == user.username else ""}
     </div>
     <div class="mt-8">
         <h3 class="text-xl font-semibold mb-4">Посты</h3>
